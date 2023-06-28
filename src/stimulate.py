@@ -73,7 +73,13 @@ def simulate_var_endogenous(k, S, lag, non_zeroes=[0], beta_value=0.4, sd=0.1, s
         X[:, t] = np.dot(beta, X[:, (t-lag):t].flatten(order='F'))
         X[:, t] += errors[:, t]
     
-    return X.T[burn_in:], beta, GC
+    data = {
+        'GC': GC,
+        'Y': X.T[burn_in:].T,
+        'beta': beta,
+    }
+
+    return data
 
 
 def simulate_var_latent(k, S, lag, non_zeroes=[0], beta_value=0.4, alpha_value=0.2, sd=0.1, seed=0):
@@ -90,6 +96,7 @@ def simulate_var_latent(k, S, lag, non_zeroes=[0], beta_value=0.4, alpha_value=0
         beta[:, col] = beta_value
         alpha[:, col] = alpha_value
         GC[:, col] = 1
+
     beta = np.hstack([beta for _ in range(lag)])    # (k, k * lag)
 
     # Generate data.
@@ -103,11 +110,87 @@ def simulate_var_latent(k, S, lag, non_zeroes=[0], beta_value=0.4, alpha_value=0
         L[:, t] = np.dot(alpha, L[:, t])
         # (k, k * lag) dot (k * lag, )
         X[:, t] = np.dot(beta, X[:, (t-lag):t].flatten(order='F'))
-        X[:, t] += L[:, t]
-        X[:, t] += errors[:, t]
+        X[:, t] = X[:, t] + L[:, t] + errors[:, t]
 
-    return X.T[burn_in:].T, L.T[burn_in:].T, beta, alpha, GC
+    data = {
+        'GC': GC,
+        'Y': X.T[burn_in:].T,
+        'beta': beta,
+        'X': L.T[burn_in:].T,
+        'alpha': alpha
+    }
+
+    return data
 
 
-Y_A, beta_A, GC_A = simulate_var_endogenous(k=30, S=50, lag=1)
-Y_B, X_B, beta_B, alpha_B, GC_B = simulate_var_latent(k=30, S=50, lag=1)
+def simulate_var_retail_latent(k, S, lag, beta_value=0.8, cross_cat_value=0.2, latent_value=0.2, sd=0.1, seed=0):
+    def generate_random_gc(k):
+        gc = np.array([])
+        for i in range(k):
+            while True:
+                c = np.random.randint(0, k, 1)
+                if c == i:
+                    continue
+                else:
+                    gc = np.append(gc, c)
+                    break
+        return gc.astype(int)
+   
+    if seed is not None:
+        np.random.seed(seed)
+
+    burn_in = int(0.1 * S)
+    theta_sign = np.random.binomial(1, 0.5, 4)
+    
+    # Set up coefficients and Granger causality ground truth (k, k).
+    GC = np.eye(k, dtype=int)
+    beta = np.eye(k) * beta_value if theta_sign[0] else np.eye(k) * (-beta_value)
+    alpha = np.eye(k) * latent_value if theta_sign[1] else np.eye(k) * (-latent_value)
+    gamma = np.eye(k) * latent_value if theta_sign[2] else np.eye(k) * (-latent_value)
+    sigma = np.eye(k) * latent_value if theta_sign[3] else np.eye(k) * (-latent_value)
+
+    # add non zero causality
+    gc_sign = np.random.binomial(1, 0.5, k)
+    gc = generate_random_gc(k)
+
+    for i, sign_num in enumerate(zip(gc_sign, gc)):
+        sign, num = sign_num
+        beta[i, num] = cross_cat_value if sign else (-cross_cat_value)
+        GC[i, num] = 1
+
+    beta = np.hstack([beta for _ in range(lag)])        # (k, k * lag)
+
+    # Generate data. (k, S + burn_in)
+    X = np.zeros((k, S + burn_in))                                               
+    PZC = np.random.triangular(-0.1, 0, 0.01, (k, S + burn_in))
+    AD = np.random.beta(1.0, 60.0, (k, S + burn_in))
+    DI = np.random.beta(2.0, 25.0, (k, S + burn_in))
+    
+    for t in range(lag, S + burn_in):
+        # (k, k) dot (k, )
+        PZC[:, t] = np.dot(alpha, PZC[:, t])
+        AD[:, t] = np.dot(gamma, AD[:, t])
+        DI[:, t] = np.dot(sigma, DI[:, t])
+
+        # (k, k * lag) dot (k * lag, )
+        X[:, t] = np.dot(beta, X[:, (t-lag):t].flatten(order='F'))
+        X[:, t] = X[:, t] + PZC[:, t] + AD[:, t] + DI[:, t]
+    
+    data = {
+        'GC': GC,
+        'Y': X.T[burn_in:].T,
+        'beta': beta,
+        'PZC': PZC.T[burn_in:].T,
+        'alpha': alpha,
+        'AD': AD.T[burn_in:].T,
+        'gamma': gamma,
+        'DI': DI.T[burn_in:].T,
+        'sigma': sigma
+    }
+
+    return data
+
+
+simulate_var_endogenous(k=30, S=50, lag=1)
+simulate_var_latent(k=30, S=50, lag=1)
+simulate_var_retail_latent(k=30, S=50, lag=1)
