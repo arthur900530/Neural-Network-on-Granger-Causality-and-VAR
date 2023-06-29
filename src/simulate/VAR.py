@@ -165,6 +165,8 @@ def simulate_var_retail_latent(k, S, lag, beta_value=0.8, cross_cat_value=0.2, l
     PZC = np.random.triangular(-0.1, 0, 0.01, (k, S + burn_in))
     AD = np.random.beta(1.0, 60.0, (k, S + burn_in))
     DI = np.random.beta(2.0, 25.0, (k, S + burn_in))
+    Sigma_rand = generate_sparse_covariance_matrix(k)
+    ECt = np.random.multivariate_normal(np.zeros(k), Sigma_rand, size=(S + burn_in)).T
     
     for t in range(lag, S + burn_in):
         # (k, k) dot (k, )
@@ -174,7 +176,7 @@ def simulate_var_retail_latent(k, S, lag, beta_value=0.8, cross_cat_value=0.2, l
 
         # (k, k * lag) dot (k * lag, )
         X[:, t] = np.dot(beta, X[:, (t-lag):t].flatten(order='F'))
-        X[:, t] = X[:, t] + PZC[:, t] + AD[:, t] + DI[:, t]
+        X[:, t] = X[:, t] + PZC[:, t] + AD[:, t] + DI[:, t] + ECt[:, t]
     
     data = {
         'GC': GC,
@@ -185,11 +187,12 @@ def simulate_var_retail_latent(k, S, lag, beta_value=0.8, cross_cat_value=0.2, l
         'AD': AD.T[burn_in:].T,
         'gamma': gamma,
         'DI': DI.T[burn_in:].T,
-        'sigma': sigma
+        'sigma': sigma,
+        'Sigma_rand': Sigma_rand,
+        'ECt': ECt
     }
     
     return data
-
 
 def generate_sparse_covariance_matrix(k, diagonal_value=0.04, cor_loc=0.0, cor_scale=0.015):
     def make_symmetric(matrix):

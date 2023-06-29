@@ -4,7 +4,7 @@
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
 # Author added
-src/demo.ipynb
+src/testing.ipynb
 
 # User-specific files
 *.rsuser
