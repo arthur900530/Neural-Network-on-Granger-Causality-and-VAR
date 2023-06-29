@@ -1,3 +1,8 @@
+save_path:
+  A: '../data/data_A_endogenous.pickle'
+  B: '../data/data_B_latent.pickle'
+  C: '../data/data_C_retail_latent.pickle'
+
 endogenous:
   k: 30
   S: 50
@@ -65,3 +70,5 @@ retail_latent:
     alpha: 2.5
     beta: 34.0
   seed: 0
+
+

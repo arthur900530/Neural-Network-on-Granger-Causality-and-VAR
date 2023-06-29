@@ -1,5 +1,5 @@
 import numpy as np
-import simulate.utils as utils
+import simulation.utils as utils
 
 # orig paper Neural Cranger Causality
 def simulate_var(k, S, lag, sparsity=0.2, beta_value=1.0, sd=0.1, seed=0):
