@@ -1,19 +1,6 @@
 import numpy as np
+import simulate.utils as utils
 
-
-def make_var_stationary(beta, radius=0.97):
-    '''Rescale coefficients of VAR model to make stable.'''                      # beta: 10, 30
-    p = beta.shape[0]                                                            # 10
-    lag = beta.shape[1] // p                                                     # 3
-    bottom = np.hstack((np.eye(p * (lag - 1)), np.zeros((p * (lag - 1), p))))    # 20, 30
-    beta_tilde = np.vstack((beta, bottom))                                       # 30, 30
-    eigvals = np.linalg.eigvals(beta_tilde)                                      # 30, 
-    max_eig = max(np.abs(eigvals))
-    nonstationary = max_eig > radius
-    if nonstationary:
-        return make_var_stationary(0.95 * beta, radius)
-    else:
-        return beta
 
 def simulate_var(p, T, lag, sparsity=0.2, beta_value=1.0, sd=0.1, seed=0):
     if seed is not None:
@@ -32,7 +19,7 @@ def simulate_var(p, T, lag, sparsity=0.2, beta_value=1.0, sd=0.1, seed=0):
         GC[i, choice] = 1
 
     beta = np.hstack([beta for _ in range(lag)])  # (p, p * lag)
-    beta = make_var_stationary(beta)              # (p, p * lag)
+    beta = utils.make_var_stationary(beta)              # (p, p * lag)
     
     # Generate data.
     burn_in = 100
@@ -123,19 +110,7 @@ def simulate_var_latent(k, S, lag, non_zeroes=[0], beta_value=0.4, alpha_value=0
     return data
 
 
-def simulate_var_retail_latent(k, S, lag, beta_value=0.8, cross_cat_value=0.2, latent_value=0.2, sd=0.1, seed=0):
-    def generate_random_gc(k):
-        gc = np.array([])
-        for i in range(k):
-            while True:
-                c = np.random.randint(0, k, 1)
-                if c == i:
-                    continue
-                else:
-                    gc = np.append(gc, c)
-                    break
-        return gc.astype(int)
-   
+def simulate_var_retail_latent(k, S, lag, cross_cat_value=0.2, seed=0):
     if seed is not None:
         np.random.seed(seed)
 
@@ -144,19 +119,10 @@ def simulate_var_retail_latent(k, S, lag, beta_value=0.8, cross_cat_value=0.2, l
     
     # Set up coefficients and Granger causality ground truth (k, k).
     GC = np.eye(k, dtype=int)
-    beta = np.eye(k) * beta_value if theta_sign[0] else np.eye(k) * (-beta_value)
-    alpha = np.eye(k) * latent_value if theta_sign[1] else np.eye(k) * (-latent_value)
-    gamma = np.eye(k) * latent_value if theta_sign[2] else np.eye(k) * (-latent_value)
-    delta = np.eye(k) * latent_value if theta_sign[3] else np.eye(k) * (-latent_value)
-
-    # add non zero causality
-    gc_sign = np.random.binomial(1, 0.5, k)
-    gc = generate_random_gc(k)
-
-    for i, sign_num in enumerate(zip(gc_sign, gc)):
-        sign, num = sign_num
-        beta[i, num] = cross_cat_value if sign else (-cross_cat_value)
-        GC[i, num] = 1
+    beta, GC = utils.coef_sim(30, 60/900, [-0.25, 0.25], -0.5, GC=GC, seed=0)
+    alpha, _ = utils.coef_sim(30, 60/900, [-0.15, 0.15], -0.3, seed=10)
+    gamma, _ = utils.coef_sim(30, 40/900, [-0.15, 0.15], -0.3, seed=100)
+    delta, _ = utils.coef_sim(30, 40/900, [-0.15, 0.15], -0.3, seed=1000)
 
     beta = np.hstack([beta for _ in range(lag)])        # (k, k * lag)
 
@@ -165,7 +131,7 @@ def simulate_var_retail_latent(k, S, lag, beta_value=0.8, cross_cat_value=0.2, l
     PZC = np.random.triangular(-0.1, 0, 0.01, (k, S + burn_in))
     AD = np.random.beta(0.5, 26.0, (k, S + burn_in))
     DI = np.random.beta(2.5, 34.0, (k, S + burn_in))
-    sigma_out = sigma_sim(k, [0.2]*k, seed=seed)
+    sigma_out = utils.sigma_sim(k, [0.2]*k, seed=seed)
     SIGMA = sigma_out['sparse']
     ECt = np.random.multivariate_normal(np.zeros(k), SIGMA, size=(S + burn_in)).T
     
@@ -189,88 +155,13 @@ def simulate_var_retail_latent(k, S, lag, beta_value=0.8, cross_cat_value=0.2, l
         'gamma': gamma,
         'DI': DI.T[burn_in:].T,
         'delta': delta,
-        'Sigma_rand': SIGMA,
+        'sigma': SIGMA,
         'ECt': ECt
     }
     
     return data
 
-def sigma_sim(q, sd_vec, seed=8888):
-    np.random.seed(seed)
-    
-    cor = {}
-    cov_raw = np.outer(sd_vec, sd_vec)
-    
-    # Diagonal: Identity correlations
-    diagonal = np.eye(q)
-    cov_diagonal = diagonal * cov_raw
-    cor['diagonal'] = cov_diagonal / np.sqrt(np.outer(sd_vec, sd_vec))
-    
-    # Sparse: Randomly picked q cross-correlation = 0.3
-    sparse = diagonal.copy()
-    indices = np.tril_indices(q, -1)
-    random_indices = np.random.choice(len(indices[0]), size=q, replace=False)
-    sparse[indices[0][random_indices], indices[1][random_indices]] = np.random.choice([-0.3, 0.3], size=q)
-    cov_sparse = np.dot(sparse, sparse.T) * cov_raw
-    cor['sparse'] = cov_sparse / np.sqrt(np.outer(sd_vec, sd_vec))
-    
-    s = round(0.8 * q * (q - 1) / 2)
-    # Dense: Randomly picked s cross-correlation = 0.3
-    dense = diagonal.copy()
-    random_indices = np.random.choice(len(indices[0]), size=s, replace=False)
-    dense[indices[0][random_indices], indices[1][random_indices]] = np.random.choice([-0.3, 0.3], size=s)
-    cov_dense = np.dot(dense, dense.T) * cov_raw
-    cor['dense'] = cov_dense / np.sqrt(np.outer(sd_vec, sd_vec))
-    
-    out = {'diagonal': cov_diagonal,
-           'sparse': cov_sparse,
-           'dense': cov_dense,
-           'cor': cor,
-           'sigma': sd_vec}
-    
-    return out
-
-# def generate_sparse_covariance_matrix(k, diagonal_value=0.04, cor_loc=0.0, cor_scale=0.015):
-#     def make_symmetric(matrix):
-#         n = matrix.shape[0]
-#         symmetric_matrix = np.zeros((n, n))
-
-#         for i in range(n):
-#             for j in range(i, n):
-#                 symmetric_matrix[i, j] = symmetric_matrix[j, i] = matrix[i, j]
-
-#         return symmetric_matrix
-
-#     C = np.zeros((k, k))
-#     triu_num = k*(k-1)/2
-
-#     non_zero_indices = np.random.choice(np.arange(1, triu_num), size=k, replace=False).astype(int)
-#     values = np.random.normal(size=k, loc=cor_loc, scale=cor_scale)
-
-#     for i in range(k):
-#         index = non_zero_indices[i]
-#         value = values[i]
-#         suffix = 0
-#         row = 0
-#         row_count = k - 1
-#         while True:
-#             if (index - row_count) > 0:
-#                 row += 1
-#                 index -= row_count
-#                 row_count -= 1
-#                 suffix += 1
-#             else:
-#                 break
-#         C[row][index + suffix] = value
-    
-#     Sigma = make_symmetric(C)
-    
-#     np.fill_diagonal(Sigma, diagonal_value)
-#     # eigenvalues, eigenvectors = linalg.eigh(Sigma)
-#     # Sigma = np.dot(np.dot(eigenvectors, np.diag(np.maximum(eigenvalues, 0))), eigenvectors.T)
-#     return Sigma
-
 
 # simulate_var_endogenous(k=30, S=50, lag=1)
 # simulate_var_latent(k=30, S=50, lag=1)
-simulate_var_retail_latent(k=30, S=50, lag=1)
+# simulate_var_retail_latent(k=30, S=50, lag=1)
