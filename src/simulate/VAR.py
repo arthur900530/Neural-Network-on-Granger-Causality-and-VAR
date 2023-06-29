@@ -147,7 +147,7 @@ def simulate_var_retail_latent(k, S, lag, beta_value=0.8, cross_cat_value=0.2, l
     beta = np.eye(k) * beta_value if theta_sign[0] else np.eye(k) * (-beta_value)
     alpha = np.eye(k) * latent_value if theta_sign[1] else np.eye(k) * (-latent_value)
     gamma = np.eye(k) * latent_value if theta_sign[2] else np.eye(k) * (-latent_value)
-    sigma = np.eye(k) * latent_value if theta_sign[3] else np.eye(k) * (-latent_value)
+    delta = np.eye(k) * latent_value if theta_sign[3] else np.eye(k) * (-latent_value)
 
     # add non zero causality
     gc_sign = np.random.binomial(1, 0.5, k)
@@ -163,16 +163,17 @@ def simulate_var_retail_latent(k, S, lag, beta_value=0.8, cross_cat_value=0.2, l
     # Generate data. (k, S + burn_in)
     X = np.zeros((k, S + burn_in))                                               
     PZC = np.random.triangular(-0.1, 0, 0.01, (k, S + burn_in))
-    AD = np.random.beta(1.0, 60.0, (k, S + burn_in))
-    DI = np.random.beta(2.0, 25.0, (k, S + burn_in))
-    Sigma_rand = generate_sparse_covariance_matrix(k)
-    ECt = np.random.multivariate_normal(np.zeros(k), Sigma_rand, size=(S + burn_in)).T
+    AD = np.random.beta(0.5, 26.0, (k, S + burn_in))
+    DI = np.random.beta(2.5, 34.0, (k, S + burn_in))
+    sigma_out = sigma_sim(k, [0.2]*k, seed=seed)
+    SIGMA = sigma_out['sparse']
+    ECt = np.random.multivariate_normal(np.zeros(k), SIGMA, size=(S + burn_in)).T
     
     for t in range(lag, S + burn_in):
         # (k, k) dot (k, )
         PZC[:, t] = np.dot(alpha, PZC[:, t])
         AD[:, t] = np.dot(gamma, AD[:, t])
-        DI[:, t] = np.dot(sigma, DI[:, t])
+        DI[:, t] = np.dot(delta, DI[:, t])
 
         # (k, k * lag) dot (k * lag, )
         X[:, t] = np.dot(beta, X[:, (t-lag):t].flatten(order='F'))
@@ -187,54 +188,89 @@ def simulate_var_retail_latent(k, S, lag, beta_value=0.8, cross_cat_value=0.2, l
         'AD': AD.T[burn_in:].T,
         'gamma': gamma,
         'DI': DI.T[burn_in:].T,
-        'sigma': sigma,
-        'Sigma_rand': Sigma_rand,
+        'delta': delta,
+        'Sigma_rand': SIGMA,
         'ECt': ECt
     }
     
     return data
 
-def generate_sparse_covariance_matrix(k, diagonal_value=0.04, cor_loc=0.0, cor_scale=0.015):
-    def make_symmetric(matrix):
-        n = matrix.shape[0]
-        symmetric_matrix = np.zeros((n, n))
-
-        for i in range(n):
-            for j in range(i, n):
-                symmetric_matrix[i, j] = symmetric_matrix[j, i] = matrix[i, j]
-
-        return symmetric_matrix
-
-    C = np.zeros((k, k))
-    triu_num = k*(k-1)/2
-
-    non_zero_indices = np.random.choice(np.arange(1, triu_num), size=k, replace=False).astype(int)
-    values = np.random.normal(size=k, loc=cor_loc, scale=cor_scale)
-
-    for i in range(k):
-        index = non_zero_indices[i]
-        value = values[i]
-        suffix = 0
-        row = 0
-        row_count = k - 1
-        while True:
-            if (index - row_count) > 0:
-                row += 1
-                index -= row_count
-                row_count -= 1
-                suffix += 1
-            else:
-                break
-        C[row][index + suffix] = value
+def sigma_sim(q, sd_vec, seed=8888):
+    np.random.seed(seed)
     
-    Sigma = make_symmetric(C)
+    cor = {}
+    cov_raw = np.outer(sd_vec, sd_vec)
     
-    np.fill_diagonal(Sigma, diagonal_value)
-    # eigenvalues, eigenvectors = linalg.eigh(Sigma)
-    # Sigma = np.dot(np.dot(eigenvectors, np.diag(np.maximum(eigenvalues, 0))), eigenvectors.T)
-    return Sigma
+    # Diagonal: Identity correlations
+    diagonal = np.eye(q)
+    cov_diagonal = diagonal * cov_raw
+    cor['diagonal'] = cov_diagonal / np.sqrt(np.outer(sd_vec, sd_vec))
+    
+    # Sparse: Randomly picked q cross-correlation = 0.3
+    sparse = diagonal.copy()
+    indices = np.tril_indices(q, -1)
+    random_indices = np.random.choice(len(indices[0]), size=q, replace=False)
+    sparse[indices[0][random_indices], indices[1][random_indices]] = np.random.choice([-0.3, 0.3], size=q)
+    cov_sparse = np.dot(sparse, sparse.T) * cov_raw
+    cor['sparse'] = cov_sparse / np.sqrt(np.outer(sd_vec, sd_vec))
+    
+    s = round(0.8 * q * (q - 1) / 2)
+    # Dense: Randomly picked s cross-correlation = 0.3
+    dense = diagonal.copy()
+    random_indices = np.random.choice(len(indices[0]), size=s, replace=False)
+    dense[indices[0][random_indices], indices[1][random_indices]] = np.random.choice([-0.3, 0.3], size=s)
+    cov_dense = np.dot(dense, dense.T) * cov_raw
+    cor['dense'] = cov_dense / np.sqrt(np.outer(sd_vec, sd_vec))
+    
+    out = {'diagonal': cov_diagonal,
+           'sparse': cov_sparse,
+           'dense': cov_dense,
+           'cor': cor,
+           'sigma': sd_vec}
+    
+    return out
+
+# def generate_sparse_covariance_matrix(k, diagonal_value=0.04, cor_loc=0.0, cor_scale=0.015):
+#     def make_symmetric(matrix):
+#         n = matrix.shape[0]
+#         symmetric_matrix = np.zeros((n, n))
+
+#         for i in range(n):
+#             for j in range(i, n):
+#                 symmetric_matrix[i, j] = symmetric_matrix[j, i] = matrix[i, j]
+
+#         return symmetric_matrix
+
+#     C = np.zeros((k, k))
+#     triu_num = k*(k-1)/2
+
+#     non_zero_indices = np.random.choice(np.arange(1, triu_num), size=k, replace=False).astype(int)
+#     values = np.random.normal(size=k, loc=cor_loc, scale=cor_scale)
+
+#     for i in range(k):
+#         index = non_zero_indices[i]
+#         value = values[i]
+#         suffix = 0
+#         row = 0
+#         row_count = k - 1
+#         while True:
+#             if (index - row_count) > 0:
+#                 row += 1
+#                 index -= row_count
+#                 row_count -= 1
+#                 suffix += 1
+#             else:
+#                 break
+#         C[row][index + suffix] = value
+    
+#     Sigma = make_symmetric(C)
+    
+#     np.fill_diagonal(Sigma, diagonal_value)
+#     # eigenvalues, eigenvectors = linalg.eigh(Sigma)
+#     # Sigma = np.dot(np.dot(eigenvectors, np.diag(np.maximum(eigenvalues, 0))), eigenvectors.T)
+#     return Sigma
 
 
 # simulate_var_endogenous(k=30, S=50, lag=1)
 # simulate_var_latent(k=30, S=50, lag=1)
-# simulate_var_retail_latent(k=30, S=50, lag=1)
+simulate_var_retail_latent(k=30, S=50, lag=1)
