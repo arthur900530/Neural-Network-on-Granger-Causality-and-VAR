@@ -1,0 +1,67 @@
+endogenous:
+  k: 30
+  S: 50
+  lag: 1
+  non_zeroes:
+    - 0
+  beta_value: 0.4
+  error_sd: 0.1
+  seed: 0
+
+latent:
+  k: 30
+  S: 50
+  lag: 1
+  non_zeroes:
+    - 0
+  beta_value: 0.4
+  alpha_value: 0.2
+  error_sd: 0.1
+  seed: 0
+
+retail_latent:
+  k: 30
+  S: 50
+  lag: 1
+  beta:
+    sparsity: 60/900
+    coeff_lim: 
+      - 0.25
+      - -0.25
+    diag: -0.5
+    seed: 10
+  alpha:
+    sparsity: 60/900
+    coeff_lim: 
+      - 0.15
+      - -0.15
+    diag: -0.3
+    seed: 100
+  gamma:
+    sparsity: 40/900
+    coeff_lim: 
+      - 0.15
+      - -0.15
+    diag: -0.3
+    seed: 1000
+  delta:
+    sparsity: 40/900
+    coeff_lim: 
+      - 0.15
+      - -0.15
+    diag: -0.3
+    seed: 10000
+  PZC:
+    # triangular distribution
+    min: -0.1
+    mode: 0
+    max: 0.01
+  AD:
+    # beta distribution
+    alpha: 0.5
+    beta: 26.0
+  DI:
+    # beta distribution
+    alpha: 2.5
+    beta: 34.0
+  seed: 0
