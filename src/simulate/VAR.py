@@ -191,6 +191,47 @@ def simulate_var_retail_latent(k, S, lag, beta_value=0.8, cross_cat_value=0.2, l
     return data
 
 
+def generate_sparse_covariance_matrix(k, diagonal_value=0.04, cor_loc=0.0, cor_scale=0.015):
+    def make_symmetric(matrix):
+        n = matrix.shape[0]
+        symmetric_matrix = np.zeros((n, n))
+
+        for i in range(n):
+            for j in range(i, n):
+                symmetric_matrix[i, j] = symmetric_matrix[j, i] = matrix[i, j]
+
+        return symmetric_matrix
+
+    C = np.zeros((k, k))
+    triu_num = k*(k-1)/2
+
+    non_zero_indices = np.random.choice(np.arange(1, triu_num), size=k, replace=False).astype(int)
+    values = np.random.normal(size=k, loc=cor_loc, scale=cor_scale)
+
+    for i in range(k):
+        index = non_zero_indices[i]
+        value = values[i]
+        suffix = 0
+        row = 0
+        row_count = k - 1
+        while True:
+            if (index - row_count) > 0:
+                row += 1
+                index -= row_count
+                row_count -= 1
+                suffix += 1
+            else:
+                break
+        C[row][index + suffix] = value
+    
+    Sigma = make_symmetric(C)
+    
+    np.fill_diagonal(Sigma, diagonal_value)
+    # eigenvalues, eigenvectors = linalg.eigh(Sigma)
+    # Sigma = np.dot(np.dot(eigenvectors, np.diag(np.maximum(eigenvalues, 0))), eigenvectors.T)
+    return Sigma
+
+
 # simulate_var_endogenous(k=30, S=50, lag=1)
 # simulate_var_latent(k=30, S=50, lag=1)
 # simulate_var_retail_latent(k=30, S=50, lag=1)
