@@ -1,0 +1,105 @@
+{
+    "os": "Linux-5.19.0-45-generic-x86_64-with-glibc2.17",
+    "python": "3.8.16",
+    "heartbeatAt": "2023-06-29T22:52:31.433486",
+    "startedAt": "2023-06-29T22:52:28.702943",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "train_cmlp.py",
+    "codePath": "src/train_cmlp.py",
+    "git": {
+        "remote": "https://github.com/arthur900530/Neural-Network-on-Granger-Causality-and-VAR.git",
+        "commit": "f4950786dbb348b7e64d8f4f3421236fcd9f82a4"
+    },
+    "email": "moneychien20639@gmail.com",
+    "root": "/home/arthur/\u684c\u9762/GC/Neural-Network-on-Granger-Causality-and-VAR",
+    "host": "arthur-GF63",
+    "username": "arthur",
+    "executable": "/home/arthur/anaconda3/envs/pytorch-2/bin/python",
+    "cpu_count": 6,
+    "cpu_count_logical": 12,
+    "cpu_freq": {
+        "current": 3.826416666666667,
+        "min": 800.0,
+        "max": 4500.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 4.299,
+            "min": 800.0,
+            "max": 4500.0
+        },
+        {
+            "current": 4.192,
+            "min": 800.0,
+            "max": 4500.0
+        },
+        {
+            "current": 4.067,
+            "min": 800.0,
+            "max": 4500.0
+        },
+        {
+            "current": 4.0,
+            "min": 800.0,
+            "max": 4500.0
+        },
+        {
+            "current": 4.145,
+            "min": 800.0,
+            "max": 4500.0
+        },
+        {
+            "current": 4.131,
+            "min": 800.0,
+            "max": 4500.0
+        },
+        {
+            "current": 4.102,
+            "min": 800.0,
+            "max": 4500.0
+        },
+        {
+            "current": 2.6,
+            "min": 800.0,
+            "max": 4500.0
+        },
+        {
+            "current": 4.135,
+            "min": 800.0,
+            "max": 4500.0
+        },
+        {
+            "current": 2.6,
+            "min": 800.0,
+            "max": 4500.0
+        },
+        {
+            "current": 2.6,
+            "min": 800.0,
+            "max": 4500.0
+        },
+        {
+            "current": 4.273,
+            "min": 800.0,
+            "max": 4500.0
+        }
+    ],
+    "disk": {
+        "total": 90.04929733276367,
+        "used": 35.82008361816406
+    },
+    "gpu": "NVIDIA GeForce GTX 1650 with Max-Q Design",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce GTX 1650 with Max-Q Design",
+            "memory_total": 4294967296
+        }
+    ],
+    "memory": {
+        "total": 15.460914611816406
+    }
+}
