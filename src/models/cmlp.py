@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 from copy import deepcopy
 from models.model_helper import activation_helper
+from tqdm import trange
 
 
 class MLP(nn.Module):
@@ -466,7 +467,12 @@ def train_model_ista(cmlp, X, lr, max_iter, lam=0, lam_ridge=0, penalty='H',
     ridge = sum([ridge_regularize(net, lam_ridge) for net in cmlp.networks])
     smooth = loss + ridge
 
-    for it in range(max_iter):
+    # it = 0
+    # mean_loss = 0
+    # variable_usage = 100
+    pbar = trange(max_iter)
+
+    for it in pbar:
         # Take gradient step.
         smooth.backward()
         for param in cmlp.parameters():
@@ -492,12 +498,9 @@ def train_model_ista(cmlp, X, lr, max_iter, lam=0, lam_ridge=0, penalty='H',
                              for net in cmlp.networks])
             mean_loss = (smooth + nonsmooth) / p
             train_loss_list.append(mean_loss.detach())
-
-            if verbose > 0:
-                print(('-' * 10 + 'Iter = %d' + '-' * 10) % (it + 1))
-                print('Loss = %f' % mean_loss)
-                print('Variable usage = %.2f%%'
-                      % (100 * torch.mean(cmlp.GC().float())))
+            variable_usage = round((100 * torch.mean(cmlp.GC().float())).item(), 2)
+            
+            pbar.set_description(desc=f'Iter: {it+1}, Loss: {mean_loss}, VU: {variable_usage}%')
 
             # Check for early stopping.
             if mean_loss < best_loss:
