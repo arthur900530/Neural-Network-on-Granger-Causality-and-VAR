@@ -52,6 +52,8 @@ def main():
         check_every = model_cfg['check_every']
     )
 
+    torch.save(cmlp.state_dict(), f'{args.model_save_path}/cmlp_{args.data_catagory}.pt')
+
 
 if __name__ == '__main__':
     main()
