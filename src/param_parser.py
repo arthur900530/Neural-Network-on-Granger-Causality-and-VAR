@@ -21,10 +21,10 @@ def parameter_parser_train():
         help="Path to cmlp training yaml."
     )
     parser.add_argument(
-        "--model_save_path",
+        "--model_save_dir",
         type=str,
         default="./saved_models",
-        help="Path to cmlp training yaml."
+        help="Directory to save trained model."
     )
     parser.add_argument(
         "--catagory",
@@ -42,10 +42,10 @@ def parameter_parser_simulation():
     parser = ArgumentParser(description="Simulate VAR data")
 
     parser.add_argument(
-        "--save_path",
+        "--save_dir",
         type=str,
         default="../data",
-        help="Folder to save simulated VAR data."
+        help="Directory to save simulated VAR data."
     )
     parser.add_argument(
         "--yaml_path",

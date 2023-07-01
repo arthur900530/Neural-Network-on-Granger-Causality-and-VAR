@@ -1,9 +1,9 @@
-wandb:
-  project: 'GC'
-  name: 'CMLP'
+# wandb:
+#   project: 'GC'
+#   name: 'CMLP'
 
-data:
-  catagory: 'retail_latent'
+# data:
+#   catagory: 'retail_latent'
 
 model:
   device: 'cuda'
@@ -13,5 +13,5 @@ model:
   lam_ridge: 0.01
   lr: 0.05
   penalty: 'H'
-  max_iter: 200
+  max_iter: 50000
   check_every: 100

@@ -48,15 +48,15 @@ class CMLP_Trainer():
         self.train_mse_list = None
     
     def save_model_and_loss(self):
-        torch.save(self.cmlp.state_dict(), f'{self.args.model_save_path}/cmlp_{self.data_catagory}.pt')
+        torch.save(self.cmlp.state_dict(), f'{self.args.model_save_dir}/cmlp_{self.data_catagory}.pt')
         if self.train_loss_list:
-            with open(f"{self.args.model_save_path}/cmlp_{self.data_catagory}_loss.pickle", 'wb') as f:
+            with open(f"{self.args.model_save_dir}/cmlp_{self.data_catagory}_loss.pickle", 'wb') as f:
                 pickle.dump(self.train_loss_list, f)
         if self.train_mse_list:
-            with open(f"{self.args.model_save_path}/cmlp_{self.data_catagory}_mse_loss.pickle", 'wb') as f:
+            with open(f"{self.args.model_save_dir}/cmlp_{self.data_catagory}_mse_loss.pickle", 'wb') as f:
                 pickle.dump(self.train_mse_list, f)
         
-        print(f'Model and loss saved at {self.args.model_save_path}')
+        print(f'Model and loss saved at {self.args.model_save_dir}')
 
     def __prox_update(self, network, lam, lr, penalty):
         '''

@@ -1,4 +1,3 @@
-import torch
 from param_parser import parameter_parser_train
 from models.cmlp_trainer import CMLP_Trainer
 
