@@ -1,17 +1,6 @@
-import wandb
 import torch
 from param_parser import parameter_parser_train
 from models.cmlp_trainer import CMLP_Trainer
-
-
-def setup_wandb(cfg):
-    wandb.init(
-        project=cfg['wandb']['project'],
-        name=cfg['wandb']['name'],
-        config=cfg
-    )
-    # config = wandb.config
-    return cfg
 
 
 def main():
