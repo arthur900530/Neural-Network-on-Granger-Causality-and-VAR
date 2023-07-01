@@ -39,7 +39,8 @@ class CMLP_Trainer():
         self.cmlp = cMLP(
               self.X.shape[-1],
               lag=self.model_cfg['lag'],
-              hidden=[self.model_cfg['hidden']]
+              hidden=[self.model_cfg['hidden']],
+              activation=self.model_cfg['activation']
         ).cuda(device=self.device)
     
     def reset_model(self):

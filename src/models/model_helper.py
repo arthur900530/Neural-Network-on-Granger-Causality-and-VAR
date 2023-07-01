@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 
-def activation_helper(activation, dim=None):
+def activation_helper(activation):
     if activation == 'sigmoid':
         act = nn.Sigmoid()
     elif activation == 'tanh':

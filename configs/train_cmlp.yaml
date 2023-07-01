@@ -15,3 +15,4 @@ model:
   penalty: 'H'
   max_iter: 50000
   check_every: 100
+  activation: 'tanh'
