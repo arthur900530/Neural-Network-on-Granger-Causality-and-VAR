@@ -6,24 +6,6 @@ seaborn == 0.12.2
 numpy == 1.24.3
 tqdm == 4.65.0
 ```
-
-## YAML Parameters
-
-- "ID": The ID of the target document, e.g. "12CR000002-V005".
-
-- "QUERY": List consists of one or many Process ID.
-
-- "TOPN": Determines the returned number _n_ of the processes with highest similarity value.
-
-- "DOCUMENT_GRAPH_WEIGHT": Weight of the **Document Graph Similarity**.
-
-- "FLOW_CHART_WEIGHT": Weight of the **Flow Chart Similarity**.
-
-- "TEXT_WEIGHT": Weight of the **Text Similarity**.
-
-- "SYSTEM_WEIGHT": Weight of the **System Similarity**.
-  
-
 ## Run the Code
 ### Stimulation:
 ```
