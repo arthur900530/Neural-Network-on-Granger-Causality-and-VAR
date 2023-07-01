@@ -2,6 +2,9 @@ wandb:
   project: 'GC'
   name: 'CMLP'
 
+data:
+  catagory: 'retail_latent'
+
 model:
   device: 'cuda'
   lag: 1
@@ -10,5 +13,5 @@ model:
   lam_ridge: 0.01
   lr: 0.05
   penalty: 'H'
-  max_iter: 50000
+  max_iter: 200
   check_every: 100

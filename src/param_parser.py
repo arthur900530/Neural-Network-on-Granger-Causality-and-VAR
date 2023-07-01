@@ -9,10 +9,10 @@ def parameter_parser_train():
     parser = ArgumentParser(description="Train CMLP")
 
     parser.add_argument(
-        "--data_path",
+        "--data_dir",
         type=str,
         default="../data",
-        help="Folder with simulated VAR data."
+        help="Directory with simulated VAR data."
     )
     parser.add_argument(
         "--yaml_path",
@@ -27,7 +27,7 @@ def parameter_parser_train():
         help="Path to cmlp training yaml."
     )
     parser.add_argument(
-        "--data_catagory",
+        "--catagory",
         type=str,
         default="retail_latent",
         help="Data catagory."
