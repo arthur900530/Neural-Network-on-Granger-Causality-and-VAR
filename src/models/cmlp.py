@@ -30,7 +30,7 @@ class MLP(nn.Module):
 
 
 class cMLP(nn.Module):
-    def __init__(self, num_series, lag, hidden, activation='relu'):
+    def __init__(self, num_series, lag, hidden, activation):
         '''
         cMLP model with one MLP per time series.
 
@@ -84,10 +84,34 @@ class cMLP(nn.Module):
             return (GC > thres_value).int()
         else:
             return GC
+    
+    def Theta(self, ignore_lag=True):
+        '''
+        Extract learned Granger causality.
+
+        Args:
+          threshold: return norm of weights, or whether norm is nonzero.
+          ignore_lag: if true, calculate norm of weights jointly for all lags.
+
+        Returns:
+          GC: (p x p) or (p x p x lag) matrix. In first case, entry (i, j)
+            indicates whether variable j is Granger causal of variable i. In
+            second case, entry (i, j, k) indicates whether it's Granger causal
+            at lag k.
+        '''
+        if ignore_lag:
+            Theta = [torch.norm(net.layers[0].weight, dim=(0, 2))
+                  for net in self.networks]
+        else:
+            Theta = [torch.norm(net.layers[0].weight, dim=0)
+                  for net in self.networks]
+        Theta = torch.stack(Theta)
+        
+        return Theta
 
 
 class cMLPSparse(nn.Module):
-    def __init__(self, num_series, sparsity, lag, hidden, activation='relu'):
+    def __init__(self, num_series, sparsity, lag, hidden, activation):
         '''
         cMLP model that only uses specified interactions.
 
