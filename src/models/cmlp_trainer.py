@@ -33,6 +33,7 @@ class CMLP_Trainer():
             print(f'{self.data_catagory} data loaded...')
         X = self.data['Y']
         self.GC = self.data['GC']
+        self.beta = self.data['beta']
         self.X = torch.tensor(X.T[np.newaxis], dtype=torch.float32, device=self.device)  # [1, 50, 30]
     
     def __setup_model(self):
@@ -519,3 +520,33 @@ class CMLP_Trainer():
         self.cmlp = cmlp
 
         self.train_loss_list = train_loss_list
+
+
+    def evaluation(self):
+        theta = self.cmlp.Theta()
+        self.TPR = self.__TPR(theta)
+        self.TNR = self.__TNR(theta)
+        self.MAEE = self.__MAEE(theta)
+
+    
+    def __TPR(self, theta):
+        beta = self.beta
+        num_pos = np.sum(np.greater(theta, 0) & np.greater(beta, 0))
+        num_neg = np.sum(np.less(theta, 0) & np.less(beta, 0))
+        numerator = num_pos + num_neg
+        denominator = np.sum(np.not_equal(beta, 0))
+        TNR = numerator / denominator
+        return TNR
+
+    def __TNR(self, theta):
+        beta = self.beta
+        numerator = np.sum(np.equal(theta, 0) & np.equal(beta, 0))
+        denominator = np.sum(np.equal(beta, 0))
+        TNR = numerator / denominator
+        return TNR
+        
+    def __MAEE(self, theta):
+        beta = self.beta
+        norm = np.linalg.norm(theta - beta)
+        MAEE = norm / beta.size
+        return MAEE

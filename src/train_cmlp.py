@@ -7,6 +7,7 @@ def main():
     cmlp_trainer = CMLP_Trainer(args)
     cmlp_trainer.train_model_ista()
     cmlp_trainer.save_model_and_loss()
+    cmlp_trainer.evaluation()
     cmlp_trainer.reset_model()
 
 
