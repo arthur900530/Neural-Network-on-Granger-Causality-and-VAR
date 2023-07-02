@@ -9,8 +9,8 @@ model:
   device: 'cuda'
   lag: 1
   hidden: 100
-  lam: 0.002
-  lam_ridge: 0.01
+  lam: 0.0022
+  lam_ridge: 0.015
   lr: 0.05
   penalty: 'H'
   max_iter: 50000

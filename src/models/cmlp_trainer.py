@@ -543,7 +543,7 @@ class CMLP_Container():
         self.TPR = self.__TPR(theta)
         self.TNR = self.__TNR(theta)
         self.MAEE = self.__MAEE(theta)
-        return f'TPR: {round(self.TPR, 3)}\nTNR: {round(self.TNR, 3)}\nMAEE: {round(self.MAEE, 3)}'
+        return f'TPR: {round(self.TPR, 4)}\nTNR: {round(self.TNR, 4)}\nMAEE: {round(self.MAEE, 4)}'
 
     
     def __TPR(self, theta):
