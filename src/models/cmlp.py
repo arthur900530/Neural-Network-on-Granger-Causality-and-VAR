@@ -59,7 +59,7 @@ class cMLP(nn.Module):
         '''
         return torch.cat([network(X) for network in self.networks], dim=2)
 
-    def GC(self, thres_value=0, ignore_lag=True):
+    def GC(self, threshold=True, ignore_lag=True):
         '''
         Extract learned Granger causality.
 
@@ -80,34 +80,11 @@ class cMLP(nn.Module):
             GC = [torch.norm(net.layers[0].weight, dim=0)
                   for net in self.networks]
         GC = torch.stack(GC)
-        if thres_value >= 0:
-            return (GC > thres_value).int()
+        if threshold:
+            GC = (GC != 0).int().cpu().data.numpy()
         else:
-            return GC
-    
-    def Theta(self, ignore_lag=True):
-        '''
-        Extract learned Granger causality.
-
-        Args:
-          threshold: return norm of weights, or whether norm is nonzero.
-          ignore_lag: if true, calculate norm of weights jointly for all lags.
-
-        Returns:
-          GC: (p x p) or (p x p x lag) matrix. In first case, entry (i, j)
-            indicates whether variable j is Granger causal of variable i. In
-            second case, entry (i, j, k) indicates whether it's Granger causal
-            at lag k.
-        '''
-        if ignore_lag:
-            Theta = [torch.norm(net.layers[0].weight, dim=(0, 2))
-                  for net in self.networks]
-        else:
-            Theta = [torch.norm(net.layers[0].weight, dim=0)
-                  for net in self.networks]
-        Theta = torch.stack(Theta)
-        
-        return Theta
+            GC = GC.cpu().data.numpy()
+        return GC
 
 
 class cMLPSparse(nn.Module):

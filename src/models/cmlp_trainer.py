@@ -8,19 +8,31 @@ from copy import deepcopy
 from tqdm import trange
 
 
-class CMLP_Trainer():
-    def __init__(self, args) -> None:
-        self.args = args
-        self.__setup_configuration()
-        self.__load_data()
-        self.__setup_model()
+class CMLP_Container():
+    def __init__(self, args=None, eval_config=None) -> None:
+        if args:
+            self.args = args
+            self.__setup_configuration()
+            self.__load_data()
+            self.__setup_model()
+        elif eval_config:
+            self.eval_config = eval_config
+            self.__setup_eval_configuration()
+            self.__load_data()
+            self.__load_model()
+            
+    def __setup_eval_configuration(self):
+        with open(self.eval_config['yaml_path'], "r") as stream:
+            cfg = yaml.safe_load(stream)
+        self.model_cfg = cfg['model']
+        self.device = torch.device(self.model_cfg['device'])
+        self.data_catagory = self.eval_config['catagory']
+        self.data_path = f'{self.eval_config["data_dir"]}/{self.data_catagory}.pickle'
     
     def __setup_configuration(self):
         with open(self.args.yaml_path, "r") as stream:
             cfg = yaml.safe_load(stream)
         self.model_cfg = cfg['model']
-        # self.wandb_cfg = cfg['wandb']
-        # self.data_cfg = cfg['data']
         self.device = torch.device(self.model_cfg['device'])
         self.data_catagory = self.args.catagory
         self.data_path = f'{self.args.data_dir}/{self.data_catagory}.pickle'
@@ -48,6 +60,10 @@ class CMLP_Trainer():
         self.__setup_model()
         self.train_loss_list = None
         self.train_mse_list = None
+    
+    def __load_model(self):
+        self.__setup_model()
+        self.cmlp.load_state_dict(torch.load(f'{self.eval_config["model_save_dir"]}/cmlp_{self.data_catagory}.pt'))
     
     def save_model_and_loss(self):
         torch.save(self.cmlp.state_dict(), f'{self.args.model_save_dir}/cmlp_{self.data_catagory}.pt')
@@ -522,11 +538,12 @@ class CMLP_Trainer():
         self.train_loss_list = train_loss_list
 
 
-    def evaluation(self):
-        theta = self.cmlp.Theta()
+    def evaluate(self):
+        theta = self.cmlp.GC(threshold=False)
         self.TPR = self.__TPR(theta)
         self.TNR = self.__TNR(theta)
         self.MAEE = self.__MAEE(theta)
+        return f'TPR: {round(self.TPR, 3)}\nTNR: {round(self.TNR, 3)}\nMAEE: {round(self.MAEE, 3)}'
 
     
     def __TPR(self, theta):
