@@ -1,5 +1,5 @@
 from param_parser import parameter_parser_train
-from models.cmlp_trainer import CMLP_Container
+from models.cmlp_container import CMLP_Container
 
 
 def main():
