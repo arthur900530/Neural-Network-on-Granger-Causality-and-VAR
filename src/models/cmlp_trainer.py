@@ -539,7 +539,7 @@ class CMLP_Container():
 
 
     def evaluate(self):
-        theta = self.cmlp.GC(threshold=False)
+        theta = self.cmlp.GC(threshold=False).cpu().data.numpy()
         self.TPR = self.__TPR(theta)
         self.TNR = self.__TNR(theta)
         self.MAEE = self.__MAEE(theta)

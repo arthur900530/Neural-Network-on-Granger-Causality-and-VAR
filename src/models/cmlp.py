@@ -81,9 +81,7 @@ class cMLP(nn.Module):
                   for net in self.networks]
         GC = torch.stack(GC)
         if threshold:
-            GC = (GC != 0).int().cpu().data.numpy()
-        else:
-            GC = GC.cpu().data.numpy()
+            GC = (GC != 0).int()
         return GC
 
 
