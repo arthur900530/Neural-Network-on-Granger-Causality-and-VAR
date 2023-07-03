@@ -7,8 +7,7 @@ def main():
     cmlp_container = CMLP_Container(args=args)
     cmlp_container.train_model_gista()
     cmlp_container.save_model_and_loss()
-    result = cmlp_container.evaluate()
-    print(result)
+    cmlp_container.evaluate()
     cmlp_container.reset_model()
 
 

@@ -542,17 +542,21 @@ class CMLP_Container():
 
     def evaluate(self):
         theta = self.cmlp.GC(threshold=False).cpu().data.numpy()
-        self.MAFE = self.__MAFE()
+        self.MAFE_train, self.MAFE_val = self.__MAFE()
         self.TPR = self.__TPR(theta)
         self.TNR = self.__TNR(theta)
         self.MAEE = self.__MAEE(theta)
-        return f'MAFE: {round(self.MAFE, 4)}\nTPR: {round(self.TPR, 4)}\nTNR: {round(self.TNR, 4)}\nMAEE: {round(self.MAEE, 4)}'
+        print(f'MAFE train: {round(self.MAFE_train, 4)}')
+        print(f'MAFE val: {round(self.MAFE_val, 4)}')
+        print(f'TPR: {round(self.TPR, 4)}')
+        print(f'TNR: {round(self.TNR, 4)}')
+        print(f'MAEE: {round(self.MAEE, 4)}')
 
     def __MAFE(self):
         X_pred = self.cmlp(self.X)
         X_val_pred = self.cmlp(self.X_val)
-        MAFE_train = torch.norm((self.X-X_pred), 1) / (self.X.shape[-1] * self.X.shape[-2]).item()
-        MAFE_val = torch.norm((self.X_val-X_val_pred), 1) / (self.X_val.shape[-1] * self.X_val.shape[-2]).item()
+        MAFE_train = (torch.norm((self.X-X_pred), 1) / (self.X.shape[-1] * self.X.shape[-2])).item()
+        MAFE_val = (torch.norm((self.X_val-X_val_pred), 1) / (self.X_val.shape[-1] * self.X_val.shape[-2])).item()
         return MAFE_train, MAFE_val
 
     def __TPR(self, theta):
