@@ -12,20 +12,20 @@ def main():
         except yaml.YAMLError as exc:
             print(exc)
     
-    data_A = VAR.simulate_var_endogenous(cfg['endogenous'])
-    data_B = VAR.simulate_var_latent(cfg['latent'])
-    data_C = VAR.simulate_var_retail_latent(cfg['retail_latent'])
-
+    endogenous = VAR.simulate_var_endogenous(cfg['endogenous'])
+    latent = VAR.simulate_var_latent(cfg['latent'])
+    retail_latent = VAR.simulate_var_retail_latent(cfg['retail_latent'])
+    
     with open(f"{args.save_dir}/{cfg['data_catagory']['A']}.pickle", 'wb') as f:
-        pickle.dump(data_A, f)
+        pickle.dump(endogenous, f)
     print('Endogenous data simulated and saved...')
 
     with open(f"{args.save_dir}/{cfg['data_catagory']['B']}.pickle", 'wb') as f:
-        pickle.dump(data_B, f)
+        pickle.dump(latent, f)
     print('Latent VAR data simulated and saved...')
 
     with open(f"{args.save_dir}/{cfg['data_catagory']['C']}.pickle", 'wb') as f:
-        pickle.dump(data_C, f)
+        pickle.dump(retail_latent, f)
     print('Retail latent VAR data simulated and saved...')
     
     print('All data simulated and saved !')

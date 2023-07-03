@@ -5,7 +5,7 @@ from models.cmlp_container import CMLP_Container
 def main():
     args = parameter_parser_train()
     cmlp_container = CMLP_Container(args=args)
-    cmlp_container.train_model_ista()
+    cmlp_container.train_model_gista()
     cmlp_container.save_model_and_loss()
     result = cmlp_container.evaluate()
     print(result)

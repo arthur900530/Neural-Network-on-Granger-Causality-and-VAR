@@ -5,7 +5,7 @@ data_catagory:
 
 endogenous:
   k: 30
-  S: 50
+  T: 53
   lag: 1
   non_zeroes:
     - 0
@@ -15,7 +15,7 @@ endogenous:
 
 latent:
   k: 30
-  S: 50
+  T: 53
   lag: 1
   non_zeroes:
     - 0
@@ -26,7 +26,7 @@ latent:
 
 retail_latent:
   k: 30
-  S: 50
+  T: 53
   lag: 1
   beta:
     sparsity: 60/900

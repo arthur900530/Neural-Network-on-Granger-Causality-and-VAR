@@ -36,7 +36,7 @@ def simulate_var(k, S, lag, sparsity=0.2, beta_value=1.0, sd=0.1, seed=0):
 
 def simulate_var_endogenous(cfg):
     k = cfg['k']
-    S = cfg['S']
+    time_span = cfg['T']
     lag = cfg['lag']
     non_zeroes = cfg['non_zeroes']
     beta_value = cfg['beta_value']
@@ -58,18 +58,23 @@ def simulate_var_endogenous(cfg):
     beta = np.hstack([beta for _ in range(lag)])  # (k, k * lag)
     
     # Generate data. (k, S + burn_in)
-    burn_in = int(0.1 * S)
-    errors = np.random.normal(scale=error_sd, size=(k, S + burn_in))  
-    X = np.zeros((k, S + burn_in))                                    
+    burn_in = int(0.1 * time_span)
+    errors = np.random.normal(scale=error_sd, size=(k, 2 * time_span + burn_in))  
+    X = np.zeros((k, 2 * time_span + burn_in))                                    
     
-    for t in range(lag, S + burn_in):
+    for t in range(lag, 2 * time_span + burn_in):
         # (k, k * lag) dot (k * lag, )
         X[:, t] = np.dot(beta, X[:, (t-lag):t].flatten(order='F'))
         X[:, t] += errors[:, t]
-    
+
+    X = X.T[burn_in:].T
+    X_train = X[:time_span]
+    X_val = X[time_span:]
+
     data = {
         'GC': GC,
-        'Y': X.T[burn_in:].T,
+        'Y': X_train,
+        'Y_val': X_val,
         'beta': beta,
     }
     return data
@@ -77,7 +82,7 @@ def simulate_var_endogenous(cfg):
 
 def simulate_var_latent(cfg):
     k = cfg['k']
-    S = cfg['S']
+    time_span = cfg['T']
     lag = cfg['lag']
     non_zeroes = cfg['non_zeroes']
     beta_value = cfg['beta_value']
@@ -102,21 +107,25 @@ def simulate_var_latent(cfg):
     beta = np.hstack([beta for _ in range(lag)])  # (k, k * lag)
 
     # Generate data. (k, S + burn_in)
-    burn_in = int(0.1 * S)
-    errors = np.random.normal(scale=error_sd, size=(k, S + burn_in)) 
-    X = np.zeros((k, S + burn_in))                          
-    L = np.random.binomial(1, 0.5, (k, S + burn_in)).astype(float)    
+    burn_in = int(0.1 * time_span)
+    errors = np.random.normal(scale=error_sd, size=(k, 2 * time_span + burn_in)) 
+    X = np.zeros((k, 2 * time_span + burn_in))                          
+    latent = np.random.binomial(1, 0.5, (k, 2 * time_span + burn_in)).astype(float)    
     
-    for t in range(lag, S + burn_in):
-        L[:, t] = np.dot(alpha, L[:, t])                            # (k, k) dot (k,)
+    for t in range(lag, 2 * time_span + burn_in):
+        latent[:, t] = np.dot(alpha, latent[:, t])                            # (k, k) dot (k,)
         X[:, t] = np.dot(beta, X[:, (t-lag):t].flatten(order='F'))  # (k, k * lag) dot (k * lag,)
-        X[:, t] = X[:, t] + L[:, t] + errors[:, t]
+        X[:, t] = X[:, t] + latent[:, t] + errors[:, t]
+
+    X = X.T[burn_in:].T
+    X_train = X[:time_span]
+    X_val = X[time_span:]
 
     data = {
         'GC': GC,
-        'Y': X.T[burn_in:].T,
+        'Y': X_train,
+        'Y_val': X_val,
         'beta': beta,
-        'X': L.T[burn_in:].T,
         'alpha': alpha
     }
     return data
@@ -124,14 +133,14 @@ def simulate_var_latent(cfg):
 
 def simulate_var_retail_latent(cfg):
     k = cfg['k']
-    S = cfg['S']
+    time_span = cfg['T']
     lag = cfg['lag']
     seed = cfg['seed']
 
     if seed is not None:
         np.random.seed(seed)
 
-    burn_in = int(0.1 * S)
+    burn_in = int(0.1 * time_span)
     
     # Set up coefficients and Granger causality ground truth. (k, k)
     GC = np.eye(k, dtype=int)
@@ -143,24 +152,29 @@ def simulate_var_retail_latent(cfg):
     beta = np.hstack([beta for _ in range(lag)])  # (k, k * lag)
 
     # Generate data. (k, S + burn_in)
-    X = np.zeros((k, S + burn_in))                                               
-    PZC = np.random.triangular(-0.1, 0, 0.01, (k, S + burn_in))
-    AD = np.random.beta(0.5, 26.0, (k, S + burn_in))
-    DI = np.random.beta(2.5, 34.0, (k, S + burn_in))
-    sigma_out = utils.sigma_sim(k, [0.2]*k, seed=seed)
+    X = np.zeros((k, 2 * time_span + burn_in))                                               
+    PZC = np.random.triangular(-0.1, 0, 0.01, (k, 2 * time_span + burn_in))
+    AD = np.random.beta(0.5, 26.0, (k, 2 * time_span + burn_in))
+    DI = np.random.beta(2.5, 34.0, (k, 2 * time_span + burn_in))
+    sigma_out = utils.sigma_sim(k, [0.2] * k, seed=seed)
     SIGMA = sigma_out['sparse']
-    ECt = np.random.multivariate_normal(np.zeros(k), SIGMA, size=(S + burn_in)).T
+    ECt = np.random.multivariate_normal(np.zeros(k), SIGMA, size=(2 * time_span + burn_in)).T
     
-    for t in range(lag, S + burn_in):
+    for t in range(lag, 2 * time_span + burn_in):
         PZC[:, t] = np.dot(alpha, PZC[:, t])                        # (k, k) dot (k, )
         AD[:, t] = np.dot(gamma, AD[:, t])
         DI[:, t] = np.dot(delta, DI[:, t])
         X[:, t] = np.dot(beta, X[:, (t-lag):t].flatten(order='F'))  # (k, k * lag) dot (k * lag, )
         X[:, t] = X[:, t] + PZC[:, t] + AD[:, t] + DI[:, t] + ECt[:, t]
     
+    X = X.T[burn_in:].T
+    X_train = X[:time_span]
+    X_val = X[time_span:]
+
     data = {
         'GC': GC,
-        'Y': X.T[burn_in:].T,
+        'Y': X_train,
+        'Y_val': X_val,
         'beta': beta,
         'PZC': PZC.T[burn_in:].T,
         'alpha': alpha,
