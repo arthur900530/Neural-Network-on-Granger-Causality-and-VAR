@@ -68,8 +68,8 @@ def simulate_var_endogenous(cfg):
         X[:, t] += errors[:, t]
 
     X = X.T[burn_in:].T
-    X_train = X[:time_span]
-    X_val = X[time_span:]
+    X_train = X[:, :time_span]
+    X_val = X[:, time_span:]
 
     data = {
         'GC': GC,
@@ -118,8 +118,8 @@ def simulate_var_latent(cfg):
         X[:, t] = X[:, t] + latent[:, t] + errors[:, t]
 
     X = X.T[burn_in:].T
-    X_train = X[:time_span]
-    X_val = X[time_span:]
+    X_train = X[:, :time_span]
+    X_val = X[:, time_span:]
 
     data = {
         'GC': GC,
@@ -168,8 +168,8 @@ def simulate_var_retail_latent(cfg):
         X[:, t] = X[:, t] + PZC[:, t] + AD[:, t] + DI[:, t] + ECt[:, t]
     
     X = X.T[burn_in:].T
-    X_train = X[:time_span]
-    X_val = X[time_span:]
+    X_train = X[:, :time_span]
+    X_val = X[:, time_span:]
 
     data = {
         'GC': GC,

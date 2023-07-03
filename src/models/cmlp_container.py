@@ -44,9 +44,11 @@ class CMLP_Container():
             self.data = pickle.load(f)
             print(f'{self.data_catagory} data loaded...')
         X = self.data['Y']
+        X_val = self.data['Y_val']
         self.GC = self.data['GC']
         self.beta = self.data['beta']
-        self.X = torch.tensor(X.T[np.newaxis], dtype=torch.float32, device=self.device)  # [1, 50, 30]
+        self.X = torch.tensor(X.T[np.newaxis], dtype=torch.float32, device=self.device)  # [1, 53, 30]
+        self.X_val = torch.tensor(X_val.T[np.newaxis], dtype=torch.float32, device=self.device)
     
     def __setup_model(self):
         self.cmlp = cMLP(
@@ -548,8 +550,10 @@ class CMLP_Container():
 
     def __MAFE(self):
         X_pred = self.cmlp(self.X)
-        MAFE = torch.norm((self.X-X_pred), 1) / (self.X.shape[-1] * self.X.shape[-2])
-        return MAFE.item()
+        X_val_pred = self.cmlp(self.X_val)
+        MAFE_train = torch.norm((self.X-X_pred), 1) / (self.X.shape[-1] * self.X.shape[-2]).item()
+        MAFE_val = torch.norm((self.X_val-X_val_pred), 1) / (self.X_val.shape[-1] * self.X_val.shape[-2]).item()
+        return MAFE_train, MAFE_val
 
     def __TPR(self, theta):
         beta = self.beta
