@@ -540,12 +540,17 @@ class CMLP_Container():
 
     def evaluate(self):
         theta = self.cmlp.GC(threshold=False).cpu().data.numpy()
+        self.MAFE = self.__MAFE()
         self.TPR = self.__TPR(theta)
         self.TNR = self.__TNR(theta)
         self.MAEE = self.__MAEE(theta)
-        return f'TPR: {round(self.TPR, 4)}\nTNR: {round(self.TNR, 4)}\nMAEE: {round(self.MAEE, 4)}'
+        return f'MAFE: {round(self.MAFE, 4)}\nTPR: {round(self.TPR, 4)}\nTNR: {round(self.TNR, 4)}\nMAEE: {round(self.MAEE, 4)}'
 
-    
+    def __MAFE(self):
+        X_pred = self.cmlp(self.X)
+        MAFE = torch.norm((self.X-X_pred), 1) / (self.X.shape[-1] * self.X.shape[-2])
+        return MAFE.item()
+
     def __TPR(self, theta):
         beta = self.beta
         num_pos = np.sum(np.greater(theta, 0) & np.greater(beta, 0))
@@ -564,6 +569,6 @@ class CMLP_Container():
         
     def __MAEE(self, theta):
         beta = self.beta
-        norm = np.linalg.norm(theta - beta)
+        norm = np.linalg.norm((theta - beta), 1)
         MAEE = norm / beta.size
         return MAEE
