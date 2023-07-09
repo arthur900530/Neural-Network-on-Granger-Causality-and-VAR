@@ -1,8 +1,3 @@
-data_catagory:
-  A: 'endogenous'
-  B: 'latent'
-  C: 'retail_latent'
-
 endogenous:
   k: 30
   T: 53

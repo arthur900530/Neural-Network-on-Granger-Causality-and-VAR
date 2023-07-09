@@ -16,15 +16,15 @@ def main():
     latent = VAR.simulate_var_latent(cfg['latent'])
     retail_latent = VAR.simulate_var_retail_latent(cfg['retail_latent'])
     
-    with open(f"{args.save_dir}/{cfg['data_catagory']['A']}.pickle", 'wb') as f:
+    with open(f"{args.save_dir}/endogenous.pickle", 'wb') as f:
         pickle.dump(endogenous, f)
     print('Endogenous data simulated and saved...')
 
-    with open(f"{args.save_dir}/{cfg['data_catagory']['B']}.pickle", 'wb') as f:
+    with open(f"{args.save_dir}/latent.pickle", 'wb') as f:
         pickle.dump(latent, f)
     print('Latent VAR data simulated and saved...')
 
-    with open(f"{args.save_dir}/{cfg['data_catagory']['C']}.pickle", 'wb') as f:
+    with open(f"{args.save_dir}/retail_latent.pickle", 'wb') as f:
         pickle.dump(retail_latent, f)
     print('Retail latent VAR data simulated and saved...')
     
