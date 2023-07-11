@@ -7,13 +7,13 @@ numpy == 1.24.3
 tqdm == 4.65.0
 ```
 ## Run the Code
-### Stimulation:
+### Simulation:
 ```
 python var_simulation.py
 ```
 ```
 --save_dir         STR      Directory to save simulated VAR data.     Default is "../data".
---yaml_path        STR      Directory to save simulated VAR data.     Default is "../data".
+--yaml_path        STR      Path to data simulation yaml.             Default is "../configs/simulation.yaml".
 ```
 ### Train cMLP:
 ```
