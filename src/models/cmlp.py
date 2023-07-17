@@ -125,3 +125,43 @@ class cMLPSparse(nn.Module):
         '''
         return torch.cat([self.networks[i](X[:, :, self.sparsity[i]])
                           for i in range(self.p)], dim=2)
+
+
+class composedMLP(nn.Module):
+    def __init__(self, num_series, lag, hidden, activation, cmlp_count):
+        super(composedMLP, self).__init__()
+        self.cmlp_count = cmlp_count
+        self.p = num_series
+        self.lag = lag
+        self.activation = activation_helper(activation)
+
+        # Set up networks.
+        self.cmlps = nn.ModuleList([
+            cMLP(num_series, lag, hidden, activation)
+            for _ in range(cmlp_count)])
+
+    def forward(self, X):
+        '''
+        Perform forward pass.
+
+        Args:
+          X: torch tensor of shape (batch, T, p).
+        '''
+        x = torch.zeros(X.shape)
+        for cmlp in self.cmlps:
+            x = torch.add(x, cmlp(X))
+
+    def GC(self, threshold=True, ignore_lag=True):
+        GC_list = []
+        for cmlp in self.cmlps:
+            if ignore_lag:
+                GC = [torch.norm(net.layers[0].weight, dim=(0, 2))
+                    for net in cmlp.networks]
+            else:
+                GC = [torch.norm(net.layers[0].weight, dim=0)
+                    for net in cmlp.networks]
+            GC = torch.stack(GC)
+            if threshold:
+                GC = (GC != 0).int()
+            GC_list.append(GC)
+        return GC_list
