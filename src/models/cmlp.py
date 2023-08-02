@@ -4,33 +4,35 @@ from models.model_helper import activation_helper
 
 
 class MLP(nn.Module):
-    def __init__(self, num_series, lag, hidden, activation):
+    def __init__(self, num_series, lag, hidden, activation, prime):
         super(MLP, self).__init__()
         self.activation = activation_helper(activation)
-
         # Set up network.
         layer = nn.Conv1d(num_series, hidden[0], lag)
         modules = [layer]
-
-        for d_in, d_out in zip(hidden, hidden[1:] + [1]):
-            layer = nn.Conv1d(d_in, d_out, 1)
+        if not prime:
+            for d_in, d_out in zip(hidden, hidden[1:] + [1]):
+                layer = nn.Conv1d(d_in, d_out, 1)
+                modules.append(layer)
+        else:
+            layer = nn.Linear(hidden[0], 1)
             modules.append(layer)
 
         # Register parameters.
         self.layers = nn.ModuleList(modules)
 
     def forward(self, X):
-        X = X.transpose(2, 1)
+        X = X.transpose(2, 1)               # Batch, p, T
         for i, fc in enumerate(self.layers):
             if i != 0:
                 X = self.activation(X)
-            X = fc(X)
+            X = fc(X)                       # Batch, hidden, T
 
         return X.transpose(2, 1)
 
 
 class cMLP(nn.Module):
-    def __init__(self, num_series, lag, hidden, activation):
+    def __init__(self, num_series, lag, hidden, activation, prime=False):
         '''
         cMLP model with one MLP per time series.
 
@@ -47,7 +49,7 @@ class cMLP(nn.Module):
 
         # Set up networks.
         self.networks = nn.ModuleList([
-            MLP(num_series, lag, hidden, activation)
+            MLP(num_series, lag, hidden, activation, prime)
             for _ in range(num_series)])
 
     def forward(self, X):
@@ -59,7 +61,7 @@ class cMLP(nn.Module):
         '''
         return torch.cat([network(X) for network in self.networks], dim=2)
 
-    def GC(self, threshold=True, ignore_lag=True):
+    def GC(self, threshold=True, ignore_lag=True, prime=False):
         '''
         Extract learned Granger causality.
 
@@ -73,15 +75,27 @@ class cMLP(nn.Module):
             second case, entry (i, j, k) indicates whether it's Granger causal
             at lag k.
         '''
-        if ignore_lag:
-            GC = [torch.norm(net.layers[0].weight, dim=(0, 2))
-                  for net in self.networks]
+        if not prime:
+            if ignore_lag:
+                GC = [torch.norm(net.layers[0].weight, dim=(0, 2))
+                    for net in self.networks]
+            else:
+                GC = [torch.norm(net.layers[0].weight, dim=0)
+                    for net in self.networks]
         else:
-            GC = [torch.norm(net.layers[0].weight, dim=0)
-                  for net in self.networks]
+            GC = []
+            for net in self.networks:
+                if net.layers[0].weight.shape[-1] > 1:
+                    l0 = torch.norm(net.layers[0].weight, dim=(2))
+                else:
+                    l0 = torch.squeeze(net.layers[0].weight, -1)
+                gc = torch.squeeze(torch.matmul(net.layers[1].weight, l0), 0)
+                GC.append(gc)
+
         GC = torch.stack(GC)
         if threshold:
             GC = (GC != 0).int()
+            
         return GC
 
 
