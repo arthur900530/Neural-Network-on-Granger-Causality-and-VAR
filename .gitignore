@@ -6,7 +6,7 @@
 # Author added
 src/wandb/*
 src/testing.ipynb
-
+src/saved_models
 # User-specific files
 *.rsuser
 *.suo

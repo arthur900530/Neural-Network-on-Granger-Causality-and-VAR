@@ -1,5 +1,7 @@
 import numpy as np
 import simulation.utils as utils
+import copy
+
 
 # orig paper Neural Cranger Causality
 def simulate_var(k, S, lag, sparsity=0.2, beta_value=1.0, sd=0.1, seed=0):
@@ -110,23 +112,32 @@ def simulate_var_latent(cfg):
     burn_in = int(0.1 * time_span)
     errors = np.random.normal(scale=error_sd, size=(k, 2 * time_span + burn_in)) 
     X = np.zeros((k, 2 * time_span + burn_in))                          
+    orig_X = np.zeros((k, 2 * time_span + burn_in))
     latent = np.random.binomial(1, 0.5, (k, 2 * time_span + burn_in)).astype(float)    
     
     for t in range(lag, 2 * time_span + burn_in):
         latent[:, t] = np.dot(alpha, latent[:, t])                            # (k, k) dot (k,)
         X[:, t] = np.dot(beta, X[:, (t-lag):t].flatten(order='F'))  # (k, k * lag) dot (k * lag,)
+        orig_X[:, t] = np.dot(beta, orig_X[:, (t-lag):t].flatten(order='F')) + errors[:, t]
         X[:, t] = X[:, t] + latent[:, t] + errors[:, t]
 
     X = X.T[burn_in:].T
     X_train = X[:, :time_span]
     X_val = X[:, time_span:]
 
+    orig_X = orig_X.T[burn_in:].T
+    orig_X_train = orig_X[:, :time_span]
+    orig_X_val = orig_X[:, time_span:]
+
     data = {
         'GC': GC,
         'Y': X_train,
         'Y_val': X_val,
         'beta': beta,
-        'alpha': alpha
+        'alpha': alpha,
+        'latent': latent,
+        'orig_X_train': orig_X_train,
+        'orig_X_val': orig_X_val,
     }
     return data
 
