@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import pickle
 import numpy as np
-from models.cmlp import cMLP
+from models.cmlp import cMLP, composedMLP
 from copy import deepcopy
 from tqdm import trange
 
@@ -51,12 +51,24 @@ class CMLP_Container():
         self.X_val = torch.tensor(X_val.T[np.newaxis], dtype=torch.float32, device=self.device)
     
     def __setup_model(self):
-        self.cmlp = cMLP(
-              self.X.shape[-1],
-              lag=self.model_cfg['lag'],
-              hidden=[self.model_cfg['hidden']],
-              activation=self.model_cfg['activation']
-        ).cuda(device=self.device)
+        self.composed = self.model_cfg['composed']
+        if not self.composed:
+            self.cmlp = cMLP(
+                self.X.shape[-1],
+                lag=self.model_cfg['lag'],
+                hidden=[self.model_cfg['hidden']],
+                activation=self.model_cfg['activation'],
+                prime=self.model_cfg['prime']
+            ).cuda(device=self.device)
+        else:
+            self.cmlp = composedMLP(
+                self.X.shape[-1],
+                lag=self.model_cfg['lag'],
+                hidden=[self.model_cfg['hidden']],
+                activation=self.model_cfg['activation'],
+                prime=self.model_cfg['prime'],
+                cmlp_count=self.model_cfg['composed_count']
+            ).cuda(device=self.device)
     
     def reset_model(self):
         self.__setup_model()
@@ -484,6 +496,109 @@ class CMLP_Container():
         self.train_loss_list = train_loss_list
 
 
+    def train_composed_model_ista(self, lookback=5, verbose=1):
+        '''Train model with Adam.'''
+        
+        composed_mlp = self.cmlp
+
+        X = self.X
+        orig_X = torch.tensor(self.data['orig_X_train'].T[np.newaxis], dtype=torch.float32, device=self.device)
+        latent = torch.tensor(self.data['latent_train'].T[np.newaxis], dtype=torch.float32, device=self.device)
+
+        lam = self.model_cfg['lam']
+        lam_ridge = self.model_cfg['lam_ridge']
+        lr = self.model_cfg['lr']
+        penalty = self.model_cfg['penalty']
+        max_iter = self.model_cfg['max_iter']
+        check_every = self.model_cfg['check_every']
+        composed_count = self.model_cfg['composed_count']
+
+        lag = composed_mlp.lag
+        p = X.shape[-1]
+        loss_fn = nn.MSELoss(reduction='mean')
+        train_loss_list = []
+
+        # For early stopping.
+        best_it = None
+        best_loss = np.inf
+        best_model = None
+
+        # Calculate smooth error.
+        loss_orig = sum([loss_fn(composed_mlp.cmlps[0].networks[i](orig_X[:, :-1]), orig_X[:, lag:, i:i+1])
+                    for i in range(p)])
+        ridge_orig = sum([self.__ridge_regularize(net, lam_ridge) for net in composed_mlp.cmlps[0].networks])
+
+        loss_latent = sum([loss_fn(composed_mlp.cmlps[1].networks[i](latent[:, :-1]), latent[:, lag:, i:i+1])
+                    for i in range(p)])
+        ridge_latent = sum([self.__ridge_regularize(net, lam_ridge) for net in composed_mlp.cmlps[1].networks])
+
+        smooth = loss_orig + ridge_orig + loss_latent + ridge_latent
+
+        pbar = trange(max_iter)
+
+        for it in pbar:
+            # Take gradient step.
+            smooth.backward()
+            for i in range(composed_count):
+                for param in composed_mlp.cmlps[i].parameters():
+                    param.data = param - lr * param.grad
+
+            # Take prox step.
+            if lam > 0:
+                for i in range(composed_count):
+                    for net in composed_mlp.cmlps[i].networks:
+                        self.__prox_update(net, lam, lr, penalty)
+
+            for i in range(composed_count):
+                composed_mlp.cmlps[i].zero_grad()
+
+            # Calculate loss for next iteration.
+            loss_orig = sum([loss_fn(composed_mlp.cmlps[0].networks[i](orig_X[:, :-1]), orig_X[:, lag:, i:i+1])
+                    for i in range(p)])
+            ridge_orig = sum([self.__ridge_regularize(net, lam_ridge) for net in composed_mlp.cmlps[0].networks])
+
+            loss_latent = sum([loss_fn(composed_mlp.cmlps[1].networks[i](latent[:, :-1]), latent[:, lag:, i:i+1])
+                        for i in range(p)])
+            ridge_latent = sum([self.__ridge_regularize(net, lam_ridge) for net in composed_mlp.cmlps[1].networks])
+
+            smooth = loss_orig + ridge_orig + loss_latent + ridge_latent
+
+            # Check progress.
+            if (it + 1) % check_every == 0:
+                mean_loss = smooth
+                variable_usage_list = []
+                for i in range(composed_count):
+                    # Add nonsmooth penalty.
+                    nonsmooth = sum([self.__regularize(net, lam, penalty)
+                                    for net in composed_mlp.cmlps[i].networks])
+                    mean_loss += nonsmooth
+                    variable_usage_list.append(round((100 * torch.mean(composed_mlp.cmlps[i].GC().float())).item(), 2))
+
+                mean_loss = mean_loss / p
+                train_loss_list.append(mean_loss.detach())
+
+                if mean_loss < best_loss:
+                    best_loss = mean_loss
+                    best_it = it
+                    best_model = deepcopy(composed_mlp)
+                elif (it - best_it) == lookback * check_every:
+                    if verbose:
+                        print('Stopping early')
+                    break
+
+                desc = f'Iter: {it+1}, Loss: {round(mean_loss.item(), 5)}'
+                for i in range(composed_count):
+                     desc += f', Variable usage {i}: {variable_usage_list[i]}%'
+                pbar.set_description(desc=desc)
+
+        # Restore best model.
+        for i in range(composed_count):
+            composed_mlp.cmlps[i] = self.__restore_parameters(composed_mlp.cmlps[i], best_model.cmlps[i])
+        self.cmlp = composed_mlp
+
+        self.train_loss_list = train_loss_list
+
+
     def train_unregularized(self, lookback=5, verbose=1):
         '''Train model with Adam and no regularization.'''
         cmlp = self.cmlp
@@ -541,54 +656,114 @@ class CMLP_Container():
 
 
     def evaluate(self):
-        theta = self.cmlp.GC(threshold=False).cpu().data.numpy()
+        if not self.composed:
+            theta = self.cmlp.GC(threshold=False).cpu().data.numpy()
+        else:
+            theta = self.cmlp.GC(threshold=False)
+
         self.MAFE_train, self.MAFE_val = self.__MAFE()
         self.TPR = self.__TPR(theta)
         self.TNR = self.__TNR(theta)
         self.MAEE = self.__MAEE(theta)
-        print('------------------------------------------------------------')
-        print('Type-k     TPR     TNR     MAEE    MAFE(train)    MAFE(val)')
-        print('------------------------------------------------------------')
+        print('------------------------------------------------------------------------')
+        print('Type-k       TPR            TNR        MAEE      MAFE(train)    MAFE(val)')
+        print('        endo     exo   endo     exo')
+        print('------------------------------------------------------------------------')
         print('IGLS:')
-        print('A-30      0.539   0.658   0.049      0.239          0.304')
-        print('------------------------------------------------------------')
+        print('A-30    0.539     -    0.658     -     0.049       0.239          0.304')
+        print('B-30    0.390   0.446  0.836   0.761   0.027       0.363          0.423')
+        print('------------------------------------------------------------------------')
         print('CE Optim-IGLS')
-        print('A-30      0.531   0.696   0.067      0.211          0.322')
-        print('------------------------------------------------------------')
-        print('cMLP')
-        print(f'A-30      {round(self.TPR, 3):.3f}   {round(self.TNR, 3):.3f}   {round(self.MAEE, 3):.3f}      {round(self.MAFE_train, 3)}          {round(self.MAFE_val, 3):.3f}')
-        print('------------------------------------------------------------')
-        # print(f'MAFE train: {round(self.MAFE_train, 4)}')
-        # print(f'MAFE val: {round(self.MAFE_val, 4)}')
-        # print(f'TPR: {round(self.TPR, 4)}')
-        # print(f'TNR: {round(self.TNR, 4)}')
-        # print(f'MAEE: {round(self.MAEE, 4)}')
+        print('A-30    0.531     -    0.696     -     0.067       0.211          0.322')
+        print('B-30    0.417   0.444  0.871   0.830   0.032       0.232          0.330')
+        print('------------------------------------------------------------------------')
+        print('Neural GC')
+        if not self.composed:
+            desc = f'A-30    {round(self.TPR, 3):.3f}     -    {round(self.TNR, 3):.3f}     -     {round(self.MAEE, 3):.3f}       {round(self.MAFE_train, 3)}          {round(self.MAFE_val, 3):.3f}'
+        else:
+            desc = f'B-30    {round(self.TPR[0], 3):.3f}   {round(self.TPR[1], 3):.3f}  {round(self.TNR[0], 3):.3f}   {round(self.TNR[1], 3):.3f}   {round(self.MAEE, 3):.3f}       {round(self.MAFE_train, 3)}          {round(self.MAFE_val, 3):.3f}'
+        print(desc)
+        print('------------------------------------------------------------------------')
 
     def __MAFE(self):
-        X_pred = self.cmlp(self.X)
-        X_val_pred = self.cmlp(self.X_val)
-        MAFE_train = (torch.norm((self.X-X_pred), 1) / (self.X.shape[-1] * self.X.shape[-2])).item()
-        MAFE_val = (torch.norm((self.X_val-X_val_pred), 1) / (self.X_val.shape[-1] * self.X_val.shape[-2])).item()
-        return MAFE_train, MAFE_val
+        if not self.composed:
+            X_pred = self.cmlp(self.X)
+            X_val_pred = self.cmlp(self.X_val)
+            MAFE_train = (torch.norm((self.X-X_pred), 1) / (self.X.shape[-1] * self.X.shape[-2])).item()
+            MAFE_val = (torch.norm((self.X_val-X_val_pred), 1) / (self.X_val.shape[-1] * self.X_val.shape[-2])).item()
+            return MAFE_train, MAFE_val
+        else:
+            orig_X_train = torch.tensor(self.data['orig_X_train'].T[np.newaxis], dtype=torch.float32, device=self.device)
+            orig_X_val = torch.tensor(self.data['orig_X_val'].T[np.newaxis], dtype=torch.float32, device=self.device)
+            latent_train = torch.tensor(self.data['latent_train'].T[np.newaxis], dtype=torch.float32, device=self.device)
+            latent_val = torch.tensor(self.data['latent_val'].T[np.newaxis], dtype=torch.float32, device=self.device)
+            orig_X_train_pred = self.cmlp.cmlps[0](orig_X_train)
+            orig_X_val_pred = self.cmlp.cmlps[0](orig_X_val)
+            latent_train_pred = self.cmlp.cmlps[0](latent_train)
+            latent_val_pred = self.cmlp.cmlps[0](latent_val)
+
+            X_pred = orig_X_train_pred + latent_train_pred
+            X_val_pred = orig_X_val_pred + latent_val_pred
+        
+            MAFE_train = (torch.norm((self.X-X_pred), 1) / (self.X.shape[-1] * self.X.shape[-2])).item()
+            MAFE_val = (torch.norm((self.X_val-X_val_pred), 1) / (self.X_val.shape[-1] * self.X_val.shape[-2])).item()
+            return MAFE_train, MAFE_val
 
     def __TPR(self, theta):
-        beta = self.beta
-        num_pos = np.sum(np.greater(theta, 0) & np.greater(beta, 0))
-        num_neg = np.sum(np.less(theta, 0) & np.less(beta, 0))
-        numerator = num_pos + num_neg
-        denominator = np.sum(np.not_equal(beta, 0))
-        TNR = numerator / denominator
-        return TNR
+        composed_count = self.model_cfg['composed_count']
+        if not self.composed:
+            beta = self.beta
+            num_pos = np.sum(np.greater(theta, 0) & np.greater(beta, 0))
+            num_neg = np.sum(np.less(theta, 0) & np.less(beta, 0))
+            numerator = num_pos + num_neg
+            denominator = np.sum(np.not_equal(beta, 0))
+            TPR = numerator / denominator
+            return TPR
+        else:
+            beta = self.beta
+            alpha = self.data['alpha']
+            real_gc = [beta, alpha]
+            TPR = []
+            for i in range(composed_count):
+                num_pos = np.sum(np.greater(theta[i], 0) & np.greater(real_gc[i], 0))
+                num_neg = np.sum(np.less(theta[i], 0) & np.less(real_gc[i], 0))
+                denominator = np.sum(np.not_equal(real_gc[i], 0))
+                numerator = num_pos + num_neg
+                TPR.append(numerator / denominator)
+            return TPR
 
     def __TNR(self, theta):
-        beta = self.beta
-        numerator = np.sum(np.equal(theta, 0) & np.equal(beta, 0))
-        denominator = np.sum(np.equal(beta, 0))
-        TNR = numerator / denominator
-        return TNR
-        
+        composed_count = self.model_cfg['composed_count']
+        if not self.composed:
+            beta = self.beta
+            numerator = np.sum(np.equal(theta, 0) & np.equal(beta, 0))
+            denominator = np.sum(np.equal(beta, 0))
+            TNR = numerator / denominator
+            return TNR
+        else:
+            beta = self.beta
+            alpha = self.data['alpha']
+            real_gc = [beta, alpha]
+            TNR = []
+            for i in range(composed_count):
+                numerator = np.sum(np.equal(theta[i], 0) & np.equal(real_gc[i], 0))
+                denominator = np.sum(np.equal(real_gc[i], 0))
+                TNR.append(numerator / denominator)
+            return TNR
+
     def __MAEE(self, theta):
-        beta = self.beta
-        norm = np.linalg.norm((theta - beta), 1)
-        MAEE = norm / beta.size
-        return MAEE
+        composed_count = self.model_cfg['composed_count']
+        if not self.composed:
+            beta = self.beta
+            norm = np.linalg.norm((theta - beta), 1)
+            MAEE = norm / beta.size
+            return MAEE
+        else:
+            beta = self.beta
+            alpha = self.data['alpha']
+            real_gc = [beta, alpha]
+            MAEE = 0
+            for i in range(composed_count):
+                norm = np.linalg.norm((theta[i] - real_gc[i]), 1)
+                MAEE += (norm / real_gc[i].size)
+            return MAEE

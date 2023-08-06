@@ -6,6 +6,9 @@ model:
   lam_ridge: 0.015
   lr: 0.05
   penalty: 'H'
-  max_iter: 50000
+  max_iter: 20000
   check_every: 100
   activation: 'tanh'
+  prime: False
+  composed: True
+  composed_count: 2

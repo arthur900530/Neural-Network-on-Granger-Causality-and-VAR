@@ -113,7 +113,7 @@ def simulate_var_latent(cfg):
     errors = np.random.normal(scale=error_sd, size=(k, 2 * time_span + burn_in)) 
     X = np.zeros((k, 2 * time_span + burn_in))                          
     orig_X = np.zeros((k, 2 * time_span + burn_in))
-    latent = np.random.binomial(1, 0.5, (k, 2 * time_span + burn_in)).astype(float)    
+    latent = np.random.binomial(1, 0.5, (k, 2 * time_span + burn_in)).astype(float)
     
     for t in range(lag, 2 * time_span + burn_in):
         latent[:, t] = np.dot(alpha, latent[:, t])                            # (k, k) dot (k,)
@@ -122,20 +122,23 @@ def simulate_var_latent(cfg):
         X[:, t] = X[:, t] + latent[:, t] + errors[:, t]
 
     X = X.T[burn_in:].T
+    latent = latent.T[burn_in:].T
     X_train = X[:, :time_span]
     X_val = X[:, time_span:]
 
     orig_X = orig_X.T[burn_in:].T
     orig_X_train = orig_X[:, :time_span]
     orig_X_val = orig_X[:, time_span:]
-
+    latent_train = latent[:, :time_span]
+    latent_val = latent[:, time_span:]
     data = {
         'GC': GC,
         'Y': X_train,
         'Y_val': X_val,
         'beta': beta,
         'alpha': alpha,
-        'latent': latent,
+        'latent_train': latent_train,
+        'latent_val': latent_val,
         'orig_X_train': orig_X_train,
         'orig_X_val': orig_X_val,
     }

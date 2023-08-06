@@ -26,13 +26,15 @@ class MLP(nn.Module):
         for i, fc in enumerate(self.layers):
             if i != 0:
                 X = self.activation(X)
-            X = fc(X)                       # Batch, hidden, T
+                X = fc(X)
+            else:    
+                X = fc(X)                       # Batch, hidden, T
 
-        return X.transpose(2, 1)
+        return X.transpose(2, 1) 
 
 
 class cMLP(nn.Module):
-    def __init__(self, num_series, lag, hidden, activation, prime=False):
+    def __init__(self, num_series, lag, hidden, activation, prime):
         '''
         cMLP model with one MLP per time series.
 
@@ -87,9 +89,11 @@ class cMLP(nn.Module):
             for net in self.networks:
                 if net.layers[0].weight.shape[-1] > 1:
                     l0 = torch.norm(net.layers[0].weight, dim=(2))
+                    l1 = torch.squeeze(net.layers[1].weight, -1)
                 else:
                     l0 = torch.squeeze(net.layers[0].weight, -1)
-                gc = torch.squeeze(torch.matmul(net.layers[1].weight, l0), 0)
+                    l1 = torch.squeeze(net.layers[1].weight, -1)
+                gc = torch.squeeze(torch.matmul(l1, l0), 0)
                 GC.append(gc)
 
         GC = torch.stack(GC)
@@ -142,7 +146,7 @@ class cMLPSparse(nn.Module):
 
 
 class composedMLP(nn.Module):
-    def __init__(self, num_series, lag, hidden, activation, cmlp_count):
+    def __init__(self, num_series, lag, hidden, activation, prime, cmlp_count):
         super(composedMLP, self).__init__()
         self.cmlp_count = cmlp_count
         self.p = num_series
@@ -151,7 +155,7 @@ class composedMLP(nn.Module):
 
         # Set up networks.
         self.cmlps = nn.ModuleList([
-            cMLP(num_series, lag, hidden, activation)
+            cMLP(num_series, lag, hidden, activation, prime)
             for _ in range(cmlp_count)])
 
     def forward(self, X):
@@ -164,6 +168,7 @@ class composedMLP(nn.Module):
         x = torch.zeros(X.shape)
         for cmlp in self.cmlps:
             x = torch.add(x, cmlp(X))
+        return x
 
     def GC(self, threshold=True, ignore_lag=True):
         GC_list = []
@@ -177,5 +182,5 @@ class composedMLP(nn.Module):
             GC = torch.stack(GC)
             if threshold:
                 GC = (GC != 0).int()
-            GC_list.append(GC)
+            GC_list.append(GC.cpu().data.numpy())
         return GC_list

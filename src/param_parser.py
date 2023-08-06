@@ -29,7 +29,7 @@ def parameter_parser_train():
     parser.add_argument(
         "--catagory",
         type=str,
-        default="retail_latent",
+        default="latent",
         help="Data catagory."
     )
     
