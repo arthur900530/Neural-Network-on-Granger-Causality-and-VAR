@@ -1,6 +1,8 @@
 # Neural-Network-on-Granger-Causality-and-VAR
 
-This repo contains implementation of Neural-Network-on-Granger-Causality-and-VAR, the data we simulated can be divided into three catagories: endogenous, exdogenogenous, and retail data. The code for data simulation is at *src/simulation*, code for deep learning models is at *src/models*. Our implementation is based on <cite>Tank, A., Covert, I., Foti, N., Shojaie, A., & Fox, E. B. (2021). Neural granger causality. IEEE Transactions on Pattern Analysis and Machine Intelligence, 44(8), 4267-4279.</cite>
+This repo contains implementation of Neural-Network-on-Granger-Causality-and-VAR, the data we simulated can be divided into three catagories: endogenous, exdogenogenous, and retail data. The code for data simulation is at *src/simulation*, code for deep learning models is at *src/models*. 
+
+Our implementation is based on <cite>Tank, A., Covert, I., Foti, N., Shojaie, A., & Fox, E. B. (2021). Neural granger causality. IEEE Transactions on Pattern Analysis and Machine Intelligence, 44(8), 4267-4279.</cite>
 
 ## Environment Requirements
 ```
